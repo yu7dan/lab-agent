@@ -3,35 +3,34 @@
 ## Product boundary
 
 ```text
-┌──────────────────────────────────────────────┐
-│ lab  (src/lab, compiled by build-cli.ts)     │
-│                                              │
-│  setup   doctor   config   engine passthrough│
-│  provider env normalization                  │
-│  (future) supervisor orchestration           │
-└──────────────────────┬───────────────────────┘
-                       │ spawn, inherit stdio
-                       ▼
-┌──────────────────────────────────────────────┐
-│ lab-engine  (src, compiled by build-engine)  │
-│                                              │
-│  Ink TUI · tools · sessions · permissions    │
-│  hooks · MCP · Anthropic-compatible client   │
-└──────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────┐
+│ lab  (src/lab, compiled by build-cli.ts)                  │
+│                                                           │
+│  setup   doctor   config   engine passthrough             │
+│  provider env normalization                               │
+│  supervise: contract · git evidence · acceptance · gate   │
+└───────────────┬───────────────────────────┬───────────────┘
+                │ spawn, inherited stdio   │ spawn, captured JSON
+                ▼                           ▼
+┌──────────────────────────────┐  ┌─────────────────────────┐
+│ lab-engine (src)             │  │ lab-engine (writer /    │
+│ Ink TUI · tools · sessions   │  │ auditor, headless)      │
+│ permissions · hooks · MCP    │  └─────────────────────────┘
+└──────────────────────────────┘
 ```
 
 The wrapper exists so the product can evolve without forking the 1,900-file
-engine. Configuration, diagnostics, release branding, and future multi-agent
+engine. Configuration, diagnostics, release branding, and multi-agent
 orchestration live in `src/lab/`. The engine handles one agent session at a time.
 
 ## Launch sequence
 
 1. `src/lab/cli.ts` parses reserved commands (`setup`, `doctor`, `config`,
-   `engine`, `version`, `help`).
-2. For a normal run it calls `applyLabEnvironment()`:
+   `supervise`, `engine`, `version`, `help`).
+2. For a normal run it calls `applyLabEnvironment(env, projectDir)`:
    - creates `~/.lab-agent` if needed;
-   - loads `~/.lab-agent/.env`, then the project `.lab-agent.env` without
-     overriding shell variables;
+   - loads the project `.lab-agent.env`, then `~/.lab-agent/.env`, without
+     overriding shell variables (so project values win over the profile);
    - sets `LAB_AGENT_HOME` / `CLAUDE_CONFIG_DIR`;
    - disables non-essential traffic and telemetry by default;
    - normalizes provider variables.
@@ -40,26 +39,48 @@ orchestration live in `src/lab/`. The engine handles one agent session at a time
    launcher, cwd, then repo root) and spawns it with inherited stdio.
 5. The engine's exit code becomes the wrapper's exit code.
 
-## Why the engine stays separate
+## Supervision layer
 
-- **Blast radius**: product changes do not touch the tool/session core.
-- **Independent release**: the wrapper can be rebuilt in under a second.
-- **Future supervision**: a supervisor can spawn one or more headless engine
-  sessions and observe their output without embedding itself in the TUI.
-- **Testing**: wrapper logic is plain TypeScript and unit-testable without a
-  terminal or model provider.
+`lab supervise` orchestrates two independent engine processes from
+`src/lab/supervise/`:
 
-## Planned supervision layer (Phase 2+)
+```text
+parse args + optional contract file
+  -> resolve repo root (git rev-parse --show-toplevel)
+  -> require clean worktree (ignoring .lab) and an existing HEAD
+  -> record baseline HEAD + tree
+  -> for each round (1 + maxRounds):
+       writer engine (headless, new session, no persistence)
+       -> temp-index snapshot of the worktree (includes untracked files)
+       -> changed paths, diff, allowlist / sensitive-path / HEAD checks
+       -> wrapper runs acceptance commands (never the auditor)
+       -> evidence bundle (redacted)
+       -> auditor engine (read-only tools, new session, JSON schema verdict)
+       -> deterministic gate + normalized decision
+       -> write round artifacts
+       -> accept | need human | bounded rework | reject
+  -> write report.json, print human or JSON report
+```
 
-The intended flow is:
+Key properties:
 
-1. The wrapper creates a task contract under `.lab/tasks/<id>/contract.md`.
-2. A writer engine session runs headlessly with that contract.
-3. A separate, read-only auditor session receives the contract, the diff, and
-   tool evidence — not the writer's hidden reasoning.
-4. The auditor returns a structured verdict with citations to commands, files,
-   and test output.
-5. The wrapper records the verdict in `.lab/tasks/<id>/review.json` and either
-   accepts the change or asks the writer to address specific findings.
+- **Separate contexts.** The auditor does not receive the writer's transcript,
+  final message, or hidden reasoning — only the frozen contract, diff, path
+  findings, acceptance output, and warnings.
+- **Read-only auditor.** It runs with `--tools Read,Grep,Glob`,
+  `--permission-mode dontAsk`, `--strict-mcp-config`, no setting sources, and
+  explicit deny rules. It has no shell, so all acceptance commands are executed
+  by the wrapper and cited as evidence.
+- **Deterministic gate.** Failed acceptance, path violations, sensitive-file
+  changes, or a HEAD change force `reject` even if the auditor says `accept`.
+  The wrapper can downgrade an accept, never upgrade a reject.
+- **Bounded rework.** `--max-rounds` controls rework rounds (default 2). Each
+  round is a fresh writer session; the next prompt includes prior blocking
+  findings and deterministic failures.
+- **Evidence on disk.** `.lab/tasks/<taskId>/` contains the frozen contract,
+  prompts, raw engine JSON, diff, status, acceptance logs, verdicts, and the
+  final report. Secrets are redacted before anything is written; transcripts
+  are not persisted.
 
-This is deliberately not implemented in 0.3.0. See [roadmap.md](./roadmap.md).
+See [roadmap.md](./roadmap.md) for status and [SECURITY.md](../SECURITY.md) for
+the threat model.

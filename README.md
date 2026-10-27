@@ -7,7 +7,7 @@ Lab Agent 不再维护桌面端。仓库现在只包含两件事：
 - `lab`：产品 CLI，负责配置、诊断、启动和未来的双 Agent 编排；
 - `lab-engine`：执行层，负责 TUI、工具、会话与模型调用。
 
-> 当前版本：`0.3.0` 预览版。CLI-only 重构已完成，双 Agent 监督是下一阶段的主线。
+> 当前版本：`0.3.0` 预览版。CLI-only 重构已完成，双 Agent 监督以 `lab supervise` 的形式进入预览。
 
 ---
 
@@ -23,7 +23,7 @@ Lab Agent 想多回答一个问题：**另一个独立的 Agent 能不能验收�
 3. **可追溯记录**：任务契约、工具调用、验收结论写入项目的 `.lab/`；
 4. **CLI 优先**：没有 Electron，没有第二套 UI 栈，所有能力都能在终端和 CI 里复现。
 
-监督者尚未在 `0.3.0` 中实现。当前版本先把产品边界、配置链路和发布流程做干净。
+监督者已在 `lab supervise` 中提供预览：writer 先改代码，wrapper 执行你指定的验收命令并采集 diff，auditor 在独立进程、只读工具集和新上下文中审查证据；确定性 gate 保证验收失败或越界改动不会被 auditor 的 `accept` 覆盖。
 
 ---
 
@@ -82,6 +82,19 @@ lab -p "解释这个仓库的构建流程"
 lab -p "修复失败的测试" --output-format json
 ```
 
+双 Agent 监督（在干净的 git 仓库中运行）：
+
+```bash
+lab supervise "修复 add 函数，不要修改测试" \
+  --accept "bun test" \
+  --allow src/ \
+  --max-rounds 2
+```
+
+writer 修改工作区，wrapper 运行验收命令并采集 diff，auditor 只读审查后给出
+`accept | reject | needs_human`。工件写入 `.lab/tasks/<taskId>/`，退出码见
+`lab supervise --help`。
+
 查看配置（不会打印完整密钥）：
 
 ```bash
@@ -105,6 +118,7 @@ lab engine --help
 | `lab` | 启动交互式 TUI |
 | `lab "任务"` | 带初始任务启动 |
 | `lab -p "任务"` | 一次性执行（headless） |
+| `lab supervise "任务" --accept ... --allow ...` | 双 Agent 监督：writer 修改，auditor 独立审查 |
 | `lab setup` | 配置模型提供方与 API Key |
 | `lab doctor [--json]` | 检查引擎、配置、密钥和端点连接 |
 | `lab config [path]` | 查看配置；`path` 只输出 `.env` 路径 |
@@ -154,6 +168,19 @@ MODEL=your-model
 | `LAB_ENGINE_PATH` | 指定 `lab-engine` 的绝对路径 |
 | `LAB_SECURITY_URL` | 覆盖首次启动展示的安全文档链接 |
 
+`lab supervise` 的 auditor 默认复用 writer 的提供方、模型和密钥，可用以下变量单独覆盖：
+
+| 变量 | 作用 |
+| --- | --- |
+| `LAB_AUDITOR_MODEL` | auditor 模型；默认同 writer |
+| `LAB_AUDITOR_BASE_URL` | auditor 端点；默认同 writer |
+| `LAB_AUDITOR_API_KEY` | auditor 密钥；默认同 writer |
+| `LAB_AUDITOR_MAX_TURNS` | auditor 最大 turn 数（默认 `20`） |
+| `LAB_AUDITOR_TIMEOUT_SEC` | 单轮 auditor 超时秒数（默认 `600`） |
+| `LAB_AUDITOR_MAX_BUDGET_USD` | 单轮 auditor 预算上限（美元） |
+
+这些变量只注入 auditor 子进程；writer 和验收命令的环境中会被移除。
+
 DeepSeek 的 Anthropic 兼容端点会自动补上 `/anthropic`；如果你填写了带 `/v1` 的 URL，也会自动归一化。
 
 ---
@@ -164,13 +191,18 @@ DeepSeek 的 Anthropic 兼容端点会自动补上 `/anthropic`；如果你填�
 lab (产品 CLI, TypeScript/Bun)
   ├── setup / doctor / config
   ├── provider 环境归一化
+  ├── supervise
+  │     ├── writer  ──> lab-engine（独立进程，可写）
+  │     ├── 验收命令 ──> shell（由 wrapper 执行）
+  │     └── auditor ──> lab-engine（独立进程，只读 + 结构化 verdict）
   └── spawn ──> lab-engine (TUI、工具、会话、模型调用)
 ```
 
-- `src/lab/`：新产品层，保持小而清晰，未来在这里实现监督者编排；
+- `src/lab/`：产品层，保持小而清晰；
+- `src/lab/supervise/`：监督编排、契约解析、git 证据、验收执行、verdict 与报告；
 - `src/`：执行引擎，来源于公开源码快照；已移除桌面耦合与产品层上游品牌，引擎内部仍保留少量兼容名称；
 - `scripts/`：构建与打包；
-- `.lab/`：未来存放任务契约与审查记录（当前尚未启用）。
+- `.lab/tasks/`：监督工件（契约、diff、验收日志、审计结论），默认被 `.lab/tasks/.gitignore` 排除。
 
 更多说明见 [`docs/architecture.md`](./docs/architecture.md) 与 [`docs/roadmap.md`](./docs/roadmap.md)。
 
@@ -198,8 +230,8 @@ bun run clean
 | --- | --- | --- |
 | Phase 0 | 归档桌面端、仓库 CLI-only 化 | 已完成 |
 | Phase 1 | 产品 CLI、配置/诊断、品牌清理、CI/Release | 已完成 |
-| Phase 2 | 双 Agent 监督 MVP：任务契约、只读审查、证据验收 | 规划中 |
-| Phase 3 | `.lab/` 审计记录、基准对比、监督者模型独立配置 | 规划中 |
+| Phase 2 | 双 Agent 监督 MVP：任务契约、只读审查、证据验收 | 预览（`lab supervise`） |
+| Phase 3 | 审计记录增强、基准对比、监督者模型独立配置 | 规划中 |
 
 详细设计见 [`docs/roadmap.md`](./docs/roadmap.md)。
 
@@ -208,6 +240,9 @@ bun run clean
 ## 已知边界
 
 - 引擎内部仍保留 `CLAUDE.md`、`.claude/` 等兼容命名；Lab Agent 自身的配置目录是 `~/.lab-agent`。
+- `lab supervise` 要求工作区干净（忽略 `.lab`），不支持 dirty baseline；每轮 writer 都是新进程、新 session，不持久化 transcript。
+- 监督不是沙箱：writer 默认以 `bypassPermissions` 运行，可执行任意用户级命令；allowlist 是事后证据，不是访问控制。只有在可信仓库、可信验收命令下使用，高风险任务应在容器或一次性 clone 中运行。
+- 确定性 gate 只覆盖验收命令、允许路径、敏感文件与 HEAD 变化；无法发现 `git push`、未切换的新分支，或修改 `.gitignore` 后隐藏的文件。`verdict.json` 仍建议人工复核。
 - Anthropic 订阅/OAuth、Chrome 扩展、Slack、GitHub App、Claude Code Web 等上游专属功能不属于当前支持范围，相关命令可能隐藏或不可用。Anthropic API Key 仍然受支持。
 - 引擎是公开源码快照，完整引擎类型检查尚未恢复为绿色基线；产品层使用独立的 `tsconfig.lab.json`。
 

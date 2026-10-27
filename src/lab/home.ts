@@ -164,11 +164,12 @@ export function normalizeProviderEnv(env: NodeJS.ProcessEnv = process.env): void
 /** Apply Lab Agent's profile + provider settings before the engine starts. */
 export function applyLabEnvironment(
   env: NodeJS.ProcessEnv = process.env,
+  projectDir: string = process.cwd(),
 ): LabConfigPaths {
   const paths = ensureConfigHome(env)
   // Project config overrides the profile, while real shell variables override
   // both (loadEnvFile never replaces a variable that is already defined).
-  loadEnvFile(join(process.cwd(), '.lab-agent.env'), env)
+  loadEnvFile(join(projectDir, '.lab-agent.env'), env)
   loadEnvFile(paths.envFile, env)
 
   env.LAB_AGENT_HOME = paths.home

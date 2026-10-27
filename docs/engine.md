@@ -50,6 +50,57 @@ The engine reads its profile from `~/.lab-agent` (`CLAUDE_CONFIG_DIR` is set to
 the same directory). `src/utils/labAgentHome.ts` also handles the legacy desktop
 profile path if the new directory does not exist.
 
+## Headless invocation used by `lab supervise`
+
+The supervisor spawns the engine twice per round using
+`--output-format json`, a fresh `--session-id`, stdin for the task prompt, and
+`--no-session-persistence` (no unredacted transcripts on disk).
+
+Writer:
+
+```text
+-p --output-format json
+--permission-mode bypassPermissions | acceptEdits
+--max-turns <n> [--max-budget-usd <n>]
+--no-session-persistence --session-id <uuid>
+--settings <writer-settings.json>
+--append-system-prompt-file <writer-system.md>
+```
+
+Auditor:
+
+```text
+-p --output-format json
+--permission-mode dontAsk
+--tools Read,Grep,Glob
+--disallowedTools <write/network/shell tools>
+--strict-mcp-config --setting-sources=
+--settings <auditor-settings.json>
+--json-schema <inline verdict schema>
+--max-turns <n> [--max-budget-usd <n>] [--model <auditor model>]
+--no-session-persistence --session-id <uuid>
+--append-system-prompt-file <auditor-system.md>
+```
+
+Notes:
+
+- `--json-schema` receives inline JSON, not a file path. The synthetic
+  `StructuredOutput` tool is added after `--tools` filtering, so restricting
+  the tool pool does not block structured verdicts.
+- `--setting-sources=` parses to an empty source list, disabling user, project,
+  and local settings; the explicit `--settings` file still applies. Because
+  that suppresses the wrapper's automatic `~/.claude` memory guard, the auditor
+  settings repeat the deny rules explicitly.
+- `--strict-mcp-config` without `--mcp-config` keeps MCP servers out of the
+  auditor process.
+- Plan mode is not a hard read-only boundary and `acceptEdits` auto-allows
+  `mkdir`/`touch`/`rm`/`mv`/`cp`/`sed`, so neither is used for the auditor.
+- `--bare` is not used: it changes the tool set and breaks DeepSeek
+  `ANTHROPIC_AUTH_TOKEN` authentication.
+- Each role receives exactly one provider credential for its resolved endpoint.
+  `LAB_AUDITOR_*` is removed from the writer and acceptance environments, and
+  acceptance commands run with all provider credentials removed.
+
 ## Known limitations
 
 - The source snapshot is missing some type-only modules (for example

@@ -9,6 +9,7 @@ dist/
 .env
 .env.local
 .env.*.local
+.lab-agent.env
 lab-agent.env
 freecode.env
 

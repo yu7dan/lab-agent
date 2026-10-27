@@ -213,6 +213,23 @@ describe('applyLabEnvironment', () => {
       process.chdir(originalCwd)
     }
   })
+
+  test('accepts an explicit project directory without changing cwd', () => {
+    const home = makeTempDir()
+    const project = makeTempDir()
+    writeFileSync(
+      join(home, '.env'),
+      'MODEL=home-model\nDEEPSEEK_API_KEY=sk-home\n',
+    )
+    writeFileSync(join(project, '.lab-agent.env'), 'MODEL=project-model\n')
+
+    const env: NodeJS.ProcessEnv = { LAB_AGENT_HOME: home }
+    applyLabEnvironment(env, project)
+
+    expect(env.MODEL).toBe('project-model')
+    expect(env.ANTHROPIC_MODEL).toBe('project-model')
+    expect(env.ANTHROPIC_AUTH_TOKEN).toBe('sk-home')
+  })
 })
 
 describe('maskSecret', () => {

@@ -9,6 +9,7 @@ import {
   resolveEnvFile,
 } from './home.js'
 import { runSetup } from './setup.js'
+import { runSupervise } from './supervise/index.js'
 
 function readVersion(): string {
   try {
@@ -31,6 +32,7 @@ const HELP = `Lab Agent CLI ${VERSION}
   lab doctor             检查配置、引擎与网络连接
   lab config [path]      查看配置（path 只输出配置文件路径）
   lab engine [args]      直接调用 lab-engine
+  lab supervise ...      双 Agent 监督：writer 修改，auditor 独立审查
   lab version            显示版本
   lab help               显示帮助
 
@@ -118,6 +120,9 @@ async function main(): Promise<number> {
   if (command === 'engine') {
     applyLabEnvironment()
     return runEngine(args.slice(1))
+  }
+  if (command === 'supervise') {
+    return runSupervise(args.slice(1))
   }
 
   // Default: launch the interactive engine. All arguments pass through.

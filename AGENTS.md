@@ -8,7 +8,8 @@ Guidance for AI coding agents working in this repository. See
 Lab Agent CLI is a terminal coding agent with two layers:
 
 - `src/lab/` — the product layer: `lab` commands, provider configuration,
-  diagnostics, process launch, and (later) supervisor orchestration.
+  diagnostics, process launch, and supervisor orchestration
+  (`src/lab/supervise/`).
 - `src/` (everything else) — the execution engine: TUI, tools, sessions,
   permissions, MCP, hooks, and model clients.
 
@@ -36,6 +37,21 @@ checks; keep new product code clean under `tsconfig.lab.json`.
 
 - Runtime and package manager: **Bun** (>= 1.3.11), TypeScript ESM.
 - New product code lives in `src/lab/` and must stay free of React/Ink imports.
+  `src/lab/supervise/` may import Node built-ins and other `src/lab` modules
+  only.
+- Keep supervisor safety properties intact:
+  - the auditor never gets write/shell/network tools and never runs acceptance
+    commands;
+  - acceptance commands and the contract are frozen user input, never generated
+    by either model;
+  - the deterministic gate can downgrade an auditor `accept` but never upgrade a
+    `reject`;
+  - malformed or missing auditor verdicts are infrastructure errors, never
+    accepts;
+  - prompts, artifacts, and forwarded stderr are redacted before writing.
+- `lab supervise` tests must use fake deps (fake git, engine output, acceptance
+  results). Integration tests may use temporary git repositories but must not
+  call a real provider.
 - Engine code uses relative imports ending in `.js`, which Bun resolves to
   `.ts`/`.tsx`. Follow the local file's existing import style.
 - Keep user-facing strings Chinese where the surrounding surface is Chinese;
@@ -46,7 +62,8 @@ checks; keep new product code clean under `tsconfig.lab.json`.
 
 ## Security and secrets
 
-- NEVER commit `.env`, `lab-agent.env`, API keys, tokens, or session data.
+- NEVER commit `.env`, `lab-agent.env`, `.lab-agent.env`, API keys, tokens, or
+  session data. Never commit `.lab/tasks/` contents.
 - Mask secrets in output. `maskSecret()` is the standard helper.
 - Do not log request headers or full provider responses.
 - Do not read another agent's profile (`~/.claude`), memories, or transcripts.
