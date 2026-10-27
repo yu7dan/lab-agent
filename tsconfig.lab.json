@@ -1,0 +1,4 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["src/lab", "scripts", "tests", "env.d.ts"]
+}
