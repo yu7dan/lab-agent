@@ -138,7 +138,16 @@ Write-Host 'Lab Agent CLI installer' -ForegroundColor White
 Write-Host ''
 
 try {
-  if ($FromSource) { Install-Source } else { Install-Release }
+  if ($FromSource) {
+    Install-Source
+  } else {
+    try {
+      Install-Release
+    } catch {
+      Warn 'No prebuilt CLI release is available; falling back to a source build.'
+      Install-Source
+    }
+  }
 } catch {
   Fail "Installation failed: $($_.Exception.Message)`nRe-run with -FromSource to build locally."
 }

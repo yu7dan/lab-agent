@@ -1,10 +1,14 @@
+<p align="center">
+  <img src="docs/assets/lab-agent-wordmark.png" alt="Lab Agent CLI" width="640" />
+</p>
+
 # Lab Agent CLI
 
 **一个面向终端的开源 coding agent，正在长出独立的监督者。**
 
 Lab Agent 不再维护桌面端。仓库现在只包含两件事：
 
-- `lab`：产品 CLI，负责配置、诊断、启动和未来的双 Agent 编排；
+- `lab`：产品 CLI，负责配置、诊断、启动和双 Agent 编排；
 - `lab-engine`：执行层，负责 TUI、工具、会话与模型调用。
 
 > 当前版本：`0.3.0` 预览版。CLI-only 重构已完成，双 Agent 监督以 `lab supervise` 的形式进入预览。
@@ -29,7 +33,9 @@ Lab Agent 想多回答一个问题：**另一个独立的 Agent 能不能验收�
 
 ## 安装
 
-### 预编译包（Release 发布后）
+Lab Agent 只提供 CLI。旧的桌面版安装包已从 Releases 清理，桌面端代码归档在 `archive/desktop` 分支，不再维护；后续 Releases 只发布 CLI 安装包。
+
+### 一键安装
 
 macOS / Linux：
 
@@ -43,9 +49,18 @@ Windows PowerShell：
 irm https://raw.githubusercontent.com/yu7dan/lab-agent/main/install.ps1 | iex
 ```
 
-安装脚本会下载对应平台的 `lab` 与 `lab-engine`，并放到 `~/.local/bin`（Windows 为 `%LOCALAPPDATA%\LabAgent\bin`）。
+安装脚本会优先下载对应平台的 CLI 预编译包（`lab` + `lab-engine`），放到
+`~/.local/bin`（Windows 为 `%LOCALAPPDATA%\LabAgent\bin`）。如果还没有可用的
+CLI Release，或下载失败，脚本会自动回退到源码构建，需要 git 与
+[Bun](https://bun.sh) 1.3.11+。
 
-### 从源码构建（当前推荐）
+也可以强制从源码安装：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/yu7dan/lab-agent/main/install.sh | bash -s -- --from-source
+```
+
+### 从源码构建
 
 需要 [Bun](https://bun.sh) 1.3.11 或更高版本：
 
