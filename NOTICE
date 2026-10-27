@@ -1,0 +1,45 @@
+# NOTICE
+
+Lab Agent CLI is an independent open-source project. It is **not affiliated
+with, endorsed by, or sponsored by Anthropic, PBC.**
+
+“Anthropic”, “Claude”, and “Claude Code” are trademarks of Anthropic, PBC.
+They are referenced here only to describe the origin of portions of the source
+code and to disclaim affiliation.
+
+## Source provenance
+
+The engine in `src/` is derived from a public Claude Code source snapshot
+(version 2.1.87). Lab Agent maintains its own branding, configuration, provider
+setup, launcher, diagnostics, documentation, and build/release tooling.
+
+The `src/cli/` runtime directory was missing from the initial repository
+snapshot and was restored from public mirrors that match the same source
+snapshot:
+
+- `https://github.com/uzuma645/not-clawd-code`
+  commit `af7d9c673a3815bc0562965421d2d0c5127807db`
+- `https://github.com/mehmoodosman/claude-code`
+  commit `30a1fa0f5d84b23f05664378d4863dd42aef0952`
+
+Verification performed before import:
+
+- `src/main.tsx` from the mirror differs from this repository only in Lab Agent
+  branding (`claude` → `lab-agent`, `Claude Code` → `Lab Agent`).
+- `src/cli/print.ts` has the same SHA-256 in both mirrors:
+  `77bb8bed6ebe3e5fbc3c6521dcddab479af8ce9e3df82b2a103c27bf14cc573d`.
+
+The imported files are used under the repository's Apache-2.0 license. Anyone
+redistributing Lab Agent should independently review the licensing and
+trademark implications of the underlying snapshot for their jurisdiction.
+
+## Bundled assets
+
+`src/vendor/` may contain third-party binaries (for example ripgrep). Their
+licenses remain with their respective owners.
+
+## Trademark use in the product
+
+Lab Agent does not present itself as Claude Code. The launcher, prompts, help
+text, and documentation use the Lab Agent name. Compatibility with the
+Anthropic Messages API is a technical detail, not an endorsement.

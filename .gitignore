@@ -1,7 +1,7 @@
 # Dependencies & build
 node_modules/
 dist/
-.vite/
+*.tsbuildinfo
 *.log
 .DS_Store
 
@@ -9,29 +9,33 @@ dist/
 .env
 .env.local
 .env.*.local
+.lab-agent.env
+lab-agent.env
+freecode.env
 
-# Desktop packaging artifacts
+# Lab Agent binaries
+/lab
+/lab-dev
+/lab.exe
+/lab-dev.exe
+/lab-engine
+/lab-engine-dev
+/lab-engine.exe
+/lab-engine-dev.exe
+
+# Local agent profile / old desktop profile
+.lab-agent-config/
+.freecode-config/
+.workbuddy/
+openclaw/
+
+# Project lab notebook (opt in with `git add -f .lab` if you want to share it)
+.lab/
+
+# Release artifacts
 release/
-out/
-packaging/engine/
-.smoke-test/
-Lab-Agent-0.1.1.app/
-
-# Icon work backups
-build/*.bak-*
-
-# Lab Coding engine — local artifacts / secrets
-agents/lab-coding/node_modules/
-agents/lab-coding/cli
-agents/lab-coding/cli-dev
-agents/lab-coding/dist/
-agents/lab-coding/lab-agent.env
-agents/lab-coding/freecode.env
-agents/lab-coding/.lab-agent-config/
-agents/lab-coding/.freecode-config/
-agents/lab-coding/.workbuddy/
-agents/lab-coding/.git/
-agents/lab-coding/openclaw/
+*.tgz
+*.zip
 
 # Editor / OS
 .idea/
@@ -39,6 +43,6 @@ agents/lab-coding/openclaw/
 *.swp
 .cursor/
 
-# Icon intermediates
-build/icon.iconset/
-build/*.bak-*
+# Desktop archive artifacts (kept out of the CLI tree)
+build/
+packaging/engine/

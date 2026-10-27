@@ -1,3 +1,0 @@
-SOURCE=https://github.com/TurboKach/ai-native-react-components
-ORIGIN=https://www.beautifului.dev/
-NOTE=Components copied as source (not rewritten). Lab wires IPC around them.
