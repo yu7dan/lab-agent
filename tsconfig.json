@@ -1,18 +1,22 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "CommonJS",
-    "moduleResolution": "node",
-    "lib": ["ES2022", "DOM"],
-    "outDir": "dist",
-    "rootDir": "src",
-    "strict": true,
-    "esModuleInterop": true,
+    "lib": ["ESNext"],
+    "target": "ESNext",
+    "module": "Preserve",
+    "moduleDetection": "force",
+    "jsx": "react-jsx",
+    "allowJs": true,
+    "types": ["bun"],
+    "paths": {
+      "src/*": ["./src/*"]
+    },
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "strict": false,
     "skipLibCheck": true,
-    "resolveJsonModule": true,
-    "declaration": false,
-    "sourceMap": true
+    "noFallthroughCasesInSwitch": true
   },
-  "include": ["src/main/**/*", "src/preload/**/*", "src/shared/**/*", "src/agent/**/*"],
-  "exclude": ["src/renderer/**/*", "node_modules", "dist"]
+  "include": ["src", "scripts", "env.d.ts"]
 }
