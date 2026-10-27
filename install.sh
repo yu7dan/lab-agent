@@ -16,6 +16,7 @@ INSTALL_DIR="${LAB_AGENT_INSTALL_DIR:-$HOME/.local/share/lab-agent}"
 BIN_DIR="${LAB_AGENT_BIN_DIR:-$HOME/.local/bin}"
 VERSION="${LAB_AGENT_VERSION:-latest}"
 FROM_SOURCE=0
+RELEASE_TMP=""
 
 for arg in "$@"; do
   case "$arg" in
@@ -56,14 +57,19 @@ detect_platform() {
 }
 
 require_curl() {
-  command -v curl >/dev/null 2>&1 || fail "curl is required."
+  if ! command -v curl >/dev/null 2>&1; then
+    warn "curl is required for prebuilt installs."
+    return 1
+  fi
 }
 
 download() {
   local url="$1" out="$2"
   info "Downloading $(basename "$out")"
-  curl -fL --retry 3 --connect-timeout 15 "$url" -o "$out" \
-    || fail "Download failed: $url"
+  if ! curl -fL --retry 3 --connect-timeout 15 "$url" -o "$out"; then
+    warn "Download failed: $url"
+    return 1
+  fi
 }
 
 verify_checksum() {
@@ -73,9 +79,19 @@ verify_checksum() {
   line="$(grep " ${name}\$" "$sums" || true)"
   [ -n "$line" ] || { warn "No checksum entry for ${name}; skipping."; return; }
   if command -v sha256sum >/dev/null 2>&1; then
-    (cd "$(dirname "$file")" && printf '%s\n' "$line" | sha256sum -c - >/dev/null)
+    if ! (
+      cd "$(dirname "$file")" &&
+        printf '%s\n' "$line" | sha256sum -c - >/dev/null
+    ); then
+      fail "Checksum verification failed for $(basename "$file")."
+    fi
   elif command -v shasum >/dev/null 2>&1; then
-    (cd "$(dirname "$file")" && printf '%s\n' "$line" | shasum -a 256 -c - >/dev/null)
+    if ! (
+      cd "$(dirname "$file")" &&
+        printf '%s\n' "$line" | shasum -a 256 -c - >/dev/null
+    ); then
+      fail "Checksum verification failed for $(basename "$file")."
+    fi
   else
     warn "No sha256sum/shasum available; skipping checksum."
     return
@@ -84,10 +100,10 @@ verify_checksum() {
 }
 
 install_release() {
-  require_curl
-  local tmp base url
-  tmp="$(mktemp -d)"
-  trap 'rm -rf "$tmp"' EXIT
+  require_curl || return 1
+  local base url
+  RELEASE_TMP="$(mktemp -d)"
+  trap 'rm -rf "${RELEASE_TMP:-}"' EXIT
   base="https://github.com/${REPO}/releases"
   if [ "$VERSION" = "latest" ]; then
     base="${base}/latest/download"
@@ -96,12 +112,15 @@ install_release() {
   fi
 
   url="${base}/lab-agent-${PLATFORM}.tar.gz"
-  download "$url" "$tmp/lab-agent.tar.gz"
-  download "${base}/SHA256SUMS" "$tmp/SHA256SUMS" || warn "SHA256SUMS not available."
-  verify_checksum "$tmp/lab-agent.tar.gz" "$tmp/SHA256SUMS"
+  download "$url" "$RELEASE_TMP/lab-agent.tar.gz" || return 1
+  download "${base}/SHA256SUMS" "$RELEASE_TMP/SHA256SUMS" || warn "SHA256SUMS not available."
+  verify_checksum "$RELEASE_TMP/lab-agent.tar.gz" "$RELEASE_TMP/SHA256SUMS"
 
   mkdir -p "$INSTALL_DIR/bin"
-  tar -xzf "$tmp/lab-agent.tar.gz" -C "$INSTALL_DIR/bin"
+  if ! tar -xzf "$RELEASE_TMP/lab-agent.tar.gz" -C "$INSTALL_DIR/bin"; then
+    warn "Could not extract the release archive."
+    return 1
+  fi
   # Release archives contain lab and lab-engine at their root.
   for f in lab lab-engine; do
     [ -f "$INSTALL_DIR/bin/$f" ] || fail "Archive is missing $f"
@@ -151,10 +170,9 @@ main() {
 
   if [ "$FROM_SOURCE" = "1" ]; then
     install_source
-  else
-    install_release || {
-      fail "No prebuilt release found. Re-run with --from-source, or set LAB_AGENT_VERSION to a published tag."
-    }
+  elif ! install_release; then
+    warn "No prebuilt CLI release is available; falling back to a source build."
+    install_source
   fi
 
   link_binary

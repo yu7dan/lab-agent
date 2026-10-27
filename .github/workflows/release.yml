@@ -47,15 +47,18 @@ jobs:
       - name: Package (Unix)
         if: runner.os != 'Windows'
         run: |
-          mkdir -p release
+          mkdir -p release/docs/assets
           cp dist/lab dist/lab-engine LICENSE README.md NOTICE release/
+          cp docs/assets/lab-agent-wordmark.png docs/assets/lab-agent-wordmark.svg release/docs/assets/
           tar -czf "${{ matrix.archive }}" -C release .
       - name: Package (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force release | Out-Null
+          New-Item -ItemType Directory -Force release/docs/assets | Out-Null
           Copy-Item dist/lab.exe,dist/lab-engine.exe,LICENSE,README.md,NOTICE release
+          Copy-Item docs/assets/lab-agent-wordmark.png,docs/assets/lab-agent-wordmark.svg release/docs/assets
           Compress-Archive -Path release/* -DestinationPath '${{ matrix.archive }}'
       - name: Upload artifact
         uses: actions/upload-artifact@v4
