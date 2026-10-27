@@ -168,7 +168,7 @@ lab (产品 CLI, TypeScript/Bun)
 ```
 
 - `src/lab/`：新产品层，保持小而清晰，未来在这里实现监督者编排；
-- `src/`：执行引擎，来源于公开源码快照，已移除 Claude/上游品牌与桌面耦合；
+- `src/`：执行引擎，来源于公开源码快照；已移除桌面耦合与产品层上游品牌，引擎内部仍保留少量兼容名称；
 - `scripts/`：构建与打包；
 - `.lab/`：未来存放任务契约与审查记录（当前尚未启用）。
 
@@ -202,6 +202,14 @@ bun run clean
 | Phase 3 | `.lab/` 审计记录、基准对比、监督者模型独立配置 | 规划中 |
 
 详细设计见 [`docs/roadmap.md`](./docs/roadmap.md)。
+
+---
+
+## 已知边界
+
+- 引擎内部仍保留 `CLAUDE.md`、`.claude/` 等兼容命名；Lab Agent 自身的配置目录是 `~/.lab-agent`。
+- Anthropic 订阅/OAuth、Chrome 扩展、Slack、GitHub App、Claude Code Web 等上游专属功能不属于当前支持范围，相关命令可能隐藏或不可用。Anthropic API Key 仍然受支持。
+- 引擎是公开源码快照，完整引擎类型检查尚未恢复为绿色基线；产品层使用独立的 `tsconfig.lab.json`。
 
 ---
 
